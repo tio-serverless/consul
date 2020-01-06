@@ -3,16 +3,22 @@
 
 [![Build Status](https://travis-ci.com/tio-serverless/consul.svg?branch=master)](https://travis-ci.com/tio-serverless/consul)
 
-### SideCar
+## 流程图
 
-### Watcher
+![](./consul.svg)
+
+### 组件描述
+
+- SideCar
+> 作为服务的Sidecar，当服务启动后，将服务数据注册到Consul中
+
+- Watcher
 > 监控Consul KV变化，生成Envoy数据并推送给Envoy
 
-+ Environment
-
-   - CONSUL_ADDRESS
-   - DEBUG
-   - TIO_CONSUL_CLUSTER_HTTP
-   - TIO_CONSUL_CLUSTER_GRPC
-   - TIO_CONSUL_CLUSTER_TCP
-   - MY_GRPC_PORT
+   + 启动参数
+      - DEBUG
+      - CONSUL_ADDRESS
+      - MY_GRPC_PORT
+      - TIO_CONSUL_CLUSTER_HTTP (默认Http Cluster地址)
+      - TIO_CONSUL_CLUSTER_GRPC (默认Grpc Cluster地址)
+      - TIO_CONSUL_CLUSTER_TCP (默认Tcp Cluster地址)
