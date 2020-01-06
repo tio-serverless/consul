@@ -22,19 +22,29 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// ActionType 动作类型
 type ActionType int
+
+// RouteType 指定Envoy的route类型, http/grpc/tcp
 type RouteType int
 
 const (
+	// GRPCRoute Envoy的grpc route类型
 	GRPCRoute = iota
+	// HTTPRoute Envoy的Http route类型
 	HTTPRoute
+	// TCPRoute 当不属于上述两种类型后，默认使用Tcp route类型
 	TCPRoute
 )
 
 const (
+	// CheckEvent 健康检查的事件
 	CheckEvent = iota
+	// KvEvent KV修改事件
 	KvEvent
+	// AddEndpoint 添加新的Endpoint
 	AddEndpoint
+	// RemoveEndpoint 删除已存在的Endpoint
 	RemoveEndpoint
 )
 
@@ -80,7 +90,7 @@ func (c client) routeConvert2RouterDiscoveryResponse(consulRoute map[string][]se
 
 		var r *route.Route
 
-		defaultHttpAction := &route.Route_Route{
+		defaultHTTPAction := &route.Route_Route{
 			Route: &route.RouteAction{
 				ClusterSpecifier: &route.RouteAction_Cluster{Cluster: fmt.Sprintf("%s_cluster", c.defaultCluster[HTTPRoute])},
 				PrefixRewrite:    "/",
@@ -112,7 +122,7 @@ func (c client) routeConvert2RouterDiscoveryResponse(consulRoute map[string][]se
 						PrefixRewrite:    "/",
 					}}
 			} else {
-				r.Action = defaultHttpAction
+				r.Action = defaultHTTPAction
 			}
 
 		} else {
@@ -256,8 +266,7 @@ func (c client) routeConvert2ClusterDiscoveryResponse(route map[string][]service
 						Value: 1,
 					},
 					HealthChecker: &core.HealthCheck_TcpHealthCheck_{
-						TcpHealthCheck: &core.HealthCheck_TcpHealthCheck{
-						},
+						TcpHealthCheck: &core.HealthCheck_TcpHealthCheck{},
 					},
 				},
 			},
@@ -316,7 +325,7 @@ func (c client) routeInit() error {
 				srvs = append(srvs, service{
 					name:      name,
 					endpoint:  fmt.Sprintf("%s:%d", s.Service.Address, s.Service.Port),
-					url:       m.Url,
+					url:       m.URL,
 					routetype: RouteType(m.RouteType),
 					action:    AddEndpoint,
 					remove:    m.Remove,
@@ -377,7 +386,7 @@ func (c client) handlerCheckEvent(cd consulData) map[string][]service {
 		}
 
 		m := c.route[cd.name]
-		if m.Url == "" {
+		if m.URL == "" {
 			logrus.Errorf("Can not find URL for %s", cd.name)
 			return nil
 		}
@@ -387,7 +396,7 @@ func (c client) handlerCheckEvent(cd consulData) map[string][]service {
 		for _, a := range alive {
 			s = append(s, service{
 				endpoint:  a,
-				url:       m.Url,
+				url:       m.URL,
 				routetype: RouteType(m.RouteType),
 				action:    AddEndpoint,
 				remove:    m.Remove,
