@@ -379,12 +379,15 @@ func (c client) handlerCheckEvent(cd consulData) map[string][]service {
 	//route := make(map[string][]service)
 
 	if cd.name != "" {
+		logrus.Debugf("Query Service %s Alive Instance", cd.name)
+
 		alive, err := c.queryAliveService(cd.name)
 		if err != nil {
 			logrus.Errorf("query alive service error: %s", err)
 			return nil
 		}
 
+		logrus.Debugf("Service  Has %d Alive Instance", len(alive))
 		m := c.route[cd.name]
 		if m.URL == "" {
 			logrus.Errorf("Can not find URL for %s", cd.name)
@@ -404,6 +407,8 @@ func (c client) handlerCheckEvent(cd consulData) map[string][]service {
 		}
 
 		c.routes[cd.name] = s
+		logrus.Debugf("The Latest Rotues [%v]", c.routes)
+
 		return c.routes
 	}
 
