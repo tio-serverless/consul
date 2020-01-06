@@ -32,8 +32,6 @@ install:
   - go test ./...
   - go build -mod=vendor -ldflags "-X main._VERSION_=$TIO_VERSION -X main._BRANCH_=$TRAVIS_BRANCH" -o bin/consul-agent sidecar/*.go
   - go build -mod=vendor -ldflags "-X main._VERSION_=$TIO_VERSION -X main._BRANCH_=$TRAVIS_BRANCH" -o bin/tio-consul-watch watch/*.go
-
-after_script:
   - docker build -t ${TIO_CONSUL_AGENT}:${TIO_VERSION}-${TRAVIS_BRANCH} -f Dockerfile.consul-sidecar .
   - docker push ${TIO_CONSUL_AGENT}:${TIO_VERSION}-${TRAVIS_BRANCH}
   - docker build -t ${TIO_CONSUL_WATCH}:${TIO_VERSION}-${TRAVIS_BRANCH} -f Dockerfile.consul-watch .
