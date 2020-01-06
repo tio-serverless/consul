@@ -92,13 +92,13 @@ func (c client) routeConvert2RouterDiscoveryResponse(consulRoute map[string][]se
 
 		defaultHTTPAction := &route.Route_Route{
 			Route: &route.RouteAction{
-				ClusterSpecifier: &route.RouteAction_Cluster{Cluster: fmt.Sprintf("%s_cluster", c.defaultCluster[HTTPRoute])},
+				ClusterSpecifier: &route.RouteAction_Cluster{Cluster: "http_proxy_cluster"},
 				PrefixRewrite:    "/",
 			}}
 
 		defaultGrpcction := &route.Route_Route{
 			Route: &route.RouteAction{
-				ClusterSpecifier: &route.RouteAction_Cluster{Cluster: fmt.Sprintf("%s_cluster", c.defaultCluster[GRPCRoute])},
+				ClusterSpecifier: &route.RouteAction_Cluster{Cluster: "grpc_proxy_cluster"},
 				PrefixRewrite:    "/",
 			}}
 
@@ -352,45 +352,45 @@ func (c client) routeInit() error {
 		}
 	}
 
-	// 创建反向代理Cluster
-	c.routes[c.defaultCluster[HTTPRoute]] = []service{
-		{
-			name:      c.defaultCluster[HTTPRoute],
-			endpoint:  fmt.Sprintf("%s.tio.svc.cluster.local:80", c.defaultCluster[HTTPRoute]),
-			url:       "/",
-			routetype: HTTPRoute,
-			action:    AddEndpoint,
-			remove:    false,
-		},
-	}
+	// // 创建反向代理Cluster
+	// c.routes[c.defaultCluster[HTTPRoute]] = []service{
+	// 	{
+	// 		name:      c.defaultCluster[HTTPRoute],
+	// 		endpoint:  fmt.Sprintf("%s.tio.svc.cluster.local:80", c.defaultCluster[HTTPRoute]),
+	// 		url:       "/",
+	// 		routetype: HTTPRoute,
+	// 		action:    AddEndpoint,
+	// 		remove:    false,
+	// 	},
+	// }
 
-	c.routes[c.defaultCluster[GRPCRoute]] = []service{
-		{
-			name:      c.defaultCluster[GRPCRoute],
-			endpoint:  fmt.Sprintf("%s.tio.svc.cluster.local:80", c.defaultCluster[GRPCRoute]),
-			url:       "/",
-			routetype: GRPCRoute,
-			action:    AddEndpoint,
-			remove:    false,
-		},
-	}
+	// c.routes[c.defaultCluster[GRPCRoute]] = []service{
+	// 	{
+	// 		name:      c.defaultCluster[GRPCRoute],
+	// 		endpoint:  fmt.Sprintf("%s.tio.svc.cluster.local:80", c.defaultCluster[GRPCRoute]),
+	// 		url:       "/",
+	// 		routetype: GRPCRoute,
+	// 		action:    AddEndpoint,
+	// 		remove:    false,
+	// 	},
+	// }
 
 	return nil
 }
 
-func (c client) clusterInit() {
-	if os.Getenv("TIO_CONSUL_CLUSTER_HTTP") != "" {
-		c.defaultCluster[HTTPRoute] = os.Getenv("TIO_CONSUL_CLUSTER_HTTP")
-	}
+// func (c client) clusterInit() {
+// 	if os.Getenv("TIO_CONSUL_CLUSTER_HTTP") != "" {
+// 		c.defaultCluster[HTTPRoute] = os.Getenv("TIO_CONSUL_CLUSTER_HTTP")
+// 	}
 
-	if os.Getenv("TIO_CONSUL_CLUSTER_GRPC") != "" {
-		c.defaultCluster[GRPCRoute] = os.Getenv("TIO_CONSUL_CLUSTER_GRPC")
-	}
+// 	if os.Getenv("TIO_CONSUL_CLUSTER_GRPC") != "" {
+// 		c.defaultCluster[GRPCRoute] = os.Getenv("TIO_CONSUL_CLUSTER_GRPC")
+// 	}
 
-	if os.Getenv("TIO_CONSUL_CLUSTER_TCP") != "" {
-		c.defaultCluster[TCPRoute] = os.Getenv("TIO_CONSUL_CLUSTER_TCP")
-	}
-}
+// 	if os.Getenv("TIO_CONSUL_CLUSTER_TCP") != "" {
+// 		c.defaultCluster[TCPRoute] = os.Getenv("TIO_CONSUL_CLUSTER_TCP")
+// 	}
+// }
 
 func watch(cli consulCli, cc chan consulData) {
 	for {
@@ -441,7 +441,7 @@ func (c client) handlerCheckEvent(cd consulData) map[string][]service {
 				url:       m.URL,
 				routetype: RouteType(m.RouteType),
 				action:    AddEndpoint,
-				remove:    m.Remove,
+				remove:    false,
 			})
 		}
 
@@ -469,12 +469,12 @@ func (c client) handlerKVEvent(cd consulData) {
 }
 
 type client struct {
-	route          map[string]meta
-	cli            *api.Client
-	cc             chan consulData
-	address        string
-	routes         map[string][]service
-	defaultCluster map[int]string
+	route   map[string]meta
+	cli     *api.Client
+	cc      chan consulData
+	address string
+	routes  map[string][]service
+	// defaultCluster map[int]string
 }
 
 func (c client) watchKVEvents(cd chan consulData) {
@@ -573,12 +573,12 @@ func initClient() (*client, error) {
 	}
 
 	return &client{
-		cli:            cli,
-		route:          make(map[string]meta),
-		cc:             make(chan consulData, 100),
-		address:        config.Address,
-		routes:         make(map[string][]service),
-		defaultCluster: make(map[int]string),
+		cli:     cli,
+		route:   make(map[string]meta),
+		cc:      make(chan consulData, 100),
+		address: config.Address,
+		routes:  make(map[string][]service),
+		// defaultCluster: make(map[int]string),
 	}, nil
 }
 
