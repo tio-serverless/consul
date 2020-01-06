@@ -381,7 +381,7 @@ func (c client) handlerCheckEvent(cd consulData) map[string][]service {
 	if cd.name != "" {
 		logrus.Debugf("Query Service %s Alive Instance", cd.name)
 
-		alive, err := c.queryAliveService(cd.name)
+		alive, err := c.queryAliveEndpoint(cd.name)
 		if err != nil {
 			logrus.Errorf("query alive service error: %s", err)
 			return nil
@@ -502,7 +502,7 @@ func (c client) handlerRoute(endpoints map[string][]service) error {
 	return nil
 }
 
-func (c client) queryAliveService(sid string) ([]string, error) {
+func (c client) queryAliveEndpoint(sid string) ([]string, error) {
 	allServices, _, err := c.cli.Catalog().Service(sid, "", nil)
 	if err != nil {
 		return nil, err
