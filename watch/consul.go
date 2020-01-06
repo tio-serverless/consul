@@ -22,9 +22,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// ActionType 动作类型
-type ActionType int
-
 // RouteType 指定Envoy的route类型, http/grpc/tcp
 type RouteType int
 
@@ -36,6 +33,9 @@ const (
 	// TCPRoute 当不属于上述两种类型后，默认使用Tcp route类型
 	TCPRoute
 )
+
+// ActionType 动作类型
+type ActionType int
 
 const (
 	// CheckEvent 健康检查的事件

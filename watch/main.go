@@ -96,6 +96,7 @@ func watchConsul() {
 		for {
 			select {
 			case <-trigger:
+				// A new envoy instance wants to call route and cluster data
 				send2Envoy(cli)
 			}
 		}
