@@ -1,7 +1,7 @@
 # Consul Service
 >监听Consul service register 和 Consul KV. 当Endpoint发生变更时，实时同步到Envoy
 
-[![Build Status](https://travis-ci.com/tio-serverless/consul.svg?branch=master)](https://travis-ci.com/tio-serverless/consul)
+[![Build Status](https://travis-ci.com/tio-serverless/consul.svg?branch=master)](https://travis-ci.com/tio-serverless/consul) [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=tio-serverless_consul&metric=alert_status)](https://sonarcloud.io/dashboard?id=tio-serverless_consul)
 
 ## 流程图
 
