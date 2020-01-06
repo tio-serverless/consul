@@ -1,0 +1,40 @@
+dist: trusty
+
+language: go
+
+go:
+  - 1.13.1
+
+env:
+  global:
+    - TIO_VERSION=v0.1.0
+    - TIO_CONSUL_AGENT=tioserverless/consul-agent
+    - TIO_CONSUL_WATCH=tioserverless/consul-watch
+
+addons:
+  sonarcloud:
+    organization: "tio-serverless"
+    token:
+      secure: "lrqUC6wwkLZ5pVLr4gc6p5YRyR6+DdWO+wX7CXGVJRlt3g9D/nCFpmdMDQ255H+GPsk/qVsybPdXR0vZg1Hd4NNlKwtfYVfBIisB4v+yKvGe6Xj8t3CFdkkF2BNZlJYRIfPIcU7QVJ8QGdyFZRgzvE4lyVFmF7PsMYQUkJmtjLd+4UUlQpnFdepnkc+djmpZbj1lfCX+CB7vaEBVb5corgO0XkLByjY7NdGqX0SpRXgUQB/dNhMS1is7FlECh8toBQrKo583Em6ikjiIdTWsYdsuP8aSyOhnCjvGaHmSQP6iqYuLdYmC4zMPhyCKhu5/8+mO6SVWwRnhaLX8oYre7RxXqgFbgCX5EgDwbxutsWB60cTafsJoN2eGBSLyWE4DSKB+oCE2vepdOcpZh4Ct403cYeKDycYsVJSd36/TptSMwmwjMj4kvEHgXTQBJN5eh1uiPPipcoh17+djfhg3Pny/q7dwY1Rrwd/Hjagjur+Gaq9Tazx5dxYPMyea75YJuR7dcIfzmNEmxXgfljiqyi+cYitZ3Hi6PyBWm8+TWv3lOcAgfynV+dH048QbDxibHeQWGZVdA7SCxO1LiVqKXIcFwtDQefASYFxX5PoH6abjCxCx18jwC8NWeuw+uVXyJe94DpBU1p1DOfr0WM2Ag4lxC364eH9zF66XXDJ4Qn4="
+
+script:
+  - sonar-scanner
+
+services:
+  - docker
+
+before_install:
+  - echo "$DOCKER_PASSWD" | docker login -u "$DOCKER_USER" --password-stdin
+  - go get github.com/golang/mock/gomock
+  - go get github.com/golang/mock/mockgen
+
+install:
+  - go test ./...
+  - go build -mod=vendor -ldflags "-X main._VERSION_=$TIO_VERSION -X main._BRANCH_=$TRAVIS_BRANCH" -o bin/consul-agent sidecar/*.go
+  - go build -mod=vendor -ldflags "-X main._VERSION_=$TIO_VERSION -X main._BRANCH_=$TRAVIS_BRANCH" -o bin/tio-consul-watch watch/*.go
+
+after_script:
+  - docker build -t ${TIO_CONSUL_AGENT}:${TIO_VERSION}-${TRAVIS_BRANCH} -f Dockerfile/Dockerfile.consul-sidecar .
+  - docker push ${TIO_CONSUL_AGENT}:${TIO_VERSION}-${TRAVIS_BRANCH}
+  - docker build -t ${TIO_CONSUL_WATCH}:${TIO_VERSION}-${TRAVIS_BRANCH} -f Dockerfile/Dockerfile.consul-watch .
+  - docker push ${TIO_CONSUL_WATCH}:${TIO_VERSION}-${TRAVIS_BRANCH}
