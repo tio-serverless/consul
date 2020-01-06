@@ -196,6 +196,11 @@ func (c client) routeConvert2ClusterDiscoveryResponse(route map[string][]service
 			continue
 		}
 
+		if srv[0].remove {
+			logrus.Debugf("%s Has Been Remove. Need Not Create Discovery Clusters ", name)
+			continue
+		}
+
 		srvType := srv[0].routetype
 
 		var end []*endpoint.LbEndpoint
@@ -313,29 +318,61 @@ func (c client) routeInit() error {
 	for _, k := range val {
 		var m meta
 		if err := json.Unmarshal(k.Value, &m); err == nil {
-			name := trimKey(k.Key)
-			ses, _, err := c.cli.Health().Service(name, "", true, nil)
-			if err != nil {
-				logrus.Errorf("Query [%s] Endpoints Error. %s", name, err.Error())
-				continue
-			}
-
 			var srvs []service
-			for _, s := range ses {
+			name := trimKey(k.Key)
+			if m.Remove {
 				srvs = append(srvs, service{
 					name:      name,
-					endpoint:  fmt.Sprintf("%s:%d", s.Service.Address, s.Service.Port),
 					url:       m.URL,
 					routetype: RouteType(m.RouteType),
 					action:    AddEndpoint,
-					remove:    m.Remove,
+					remove:    true,
 				})
+			} else {
+				ses, _, err := c.cli.Health().Service(name, "", true, nil)
+				if err != nil {
+					logrus.Errorf("Query [%s] Endpoints Error. %s", name, err.Error())
+					continue
+				}
+				for _, s := range ses {
+					srvs = append(srvs, service{
+						name:      name,
+						endpoint:  fmt.Sprintf("%s:%d", s.Service.Address, s.Service.Port),
+						url:       m.URL,
+						routetype: RouteType(m.RouteType),
+						action:    AddEndpoint,
+						remove:    false,
+					})
+				}
 			}
 
 			if len(srvs) > 0 {
 				c.routes[name] = srvs
 			}
 		}
+	}
+
+	// 创建反向代理Cluster
+	c.routes[c.defaultCluster[HTTPRoute]] = []service{
+		{
+			name:      c.defaultCluster[HTTPRoute],
+			endpoint:  fmt.Sprintf("%s.tio.svc.cluster.local:80", c.defaultCluster[HTTPRoute]),
+			url:       "/",
+			routetype: HTTPRoute,
+			action:    AddEndpoint,
+			remove:    false,
+		},
+	}
+
+	c.routes[c.defaultCluster[GRPCRoute]] = []service{
+		{
+			name:      c.defaultCluster[GRPCRoute],
+			endpoint:  fmt.Sprintf("%s.tio.svc.cluster.local:80", c.defaultCluster[GRPCRoute]),
+			url:       "/",
+			routetype: GRPCRoute,
+			action:    AddEndpoint,
+			remove:    false,
+		},
 	}
 
 	return nil
@@ -376,7 +413,6 @@ func watch(cli consulCli, cc chan consulData) {
 }
 
 func (c client) handlerCheckEvent(cd consulData) map[string][]service {
-	logrus.Debugf("Receive [%v] Health Check Event", cd)
 
 	if cd.name != "" {
 		logrus.Debugf("Query Service %s Alive Instance", cd.name)
@@ -415,7 +451,14 @@ func (c client) handlerCheckEvent(cd consulData) map[string][]service {
 		return c.routes
 	}
 
-	return nil
+	logrus.Debugf("A Service Fall Down. So I Need Re-Create All Clusters")
+	err := c.routeInit()
+	if err != nil {
+		logrus.Errorf("Route Init Error. %s", err.Error())
+		return nil
+	}
+
+	return c.routes
 }
 
 func (c client) handlerKVEvent(cd consulData) {

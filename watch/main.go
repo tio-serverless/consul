@@ -64,12 +64,12 @@ func watchConsul() {
 		logrus.Fatalf("Consul Client Init Error: %s", err.Error())
 	}
 
+	cli.clusterInit()
+
 	err = cli.routeInit()
 	if err != nil {
 		logrus.Fatalf("Route Init Error. %s  Quit!", err.Error())
 	}
-
-	cli.clusterInit()
 
 	for name, detail := range cli.routes {
 		logrus.Debugf("service [%s] -> [%s]: ", name, detail[0].url)
