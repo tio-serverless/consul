@@ -394,6 +394,9 @@ func (c client) handlerCheckEvent(cd consulData) map[string][]service {
 			return nil
 		}
 
+		// clear old routes
+		c.routes = make(map[string][]service)
+
 		var s []service
 
 		for _, a := range alive {
