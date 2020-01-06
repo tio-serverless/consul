@@ -376,7 +376,7 @@ func watch(cli consulCli, cc chan consulData) {
 }
 
 func (c client) handlerCheckEvent(cd consulData) map[string][]service {
-	//route := make(map[string][]service)
+	logrus.Debugf("Receive [%v] Health Check Event", cd)
 
 	if cd.name != "" {
 		logrus.Debugf("Query Service %s Alive Instance", cd.name)
