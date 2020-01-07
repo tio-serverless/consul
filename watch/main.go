@@ -64,12 +64,12 @@ func watchConsul() {
 		logrus.Fatalf("Consul Client Init Error: %s", err.Error())
 	}
 
+	// cli.clusterInit()
+
 	err = cli.routeInit()
 	if err != nil {
 		logrus.Fatalf("Route Init Error. %s  Quit!", err.Error())
 	}
-
-	cli.clusterInit()
 
 	for name, detail := range cli.routes {
 		logrus.Debugf("service [%s] -> [%s]: ", name, detail[0].url)
@@ -78,24 +78,25 @@ func watchConsul() {
 		}
 	}
 
-	for route, cluster := range cli.defaultCluster {
-		t := ""
-		switch route {
-		case HTTPRoute:
-			t = "Http"
-		case GRPCRoute:
-			t = "Grpc"
-		default:
-			t = "Tcp"
-		}
+	// for route, cluster := range cli.defaultCluster {
+	// 	t := ""
+	// 	switch route {
+	// 	case HTTPRoute:
+	// 		t = "Http"
+	// 	case GRPCRoute:
+	// 		t = "Grpc"
+	// 	default:
+	// 		t = "Tcp"
+	// 	}
 
-		logrus.Debugf("%s service route cluster: %s", t, cluster)
-	}
+	// 	logrus.Debugf("%s service route cluster: %s", t, cluster)
+	// }
 
 	go func(cli *client) {
 		for {
 			select {
 			case <-trigger:
+				// A new envoy instance wants to call route and cluster data
 				send2Envoy(cli)
 			}
 		}

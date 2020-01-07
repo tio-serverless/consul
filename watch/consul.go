@@ -22,19 +22,29 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type ActionType int
+// RouteType 指定Envoy的route类型, http/grpc/tcp
 type RouteType int
 
 const (
+	// GRPCRoute Envoy的grpc route类型
 	GRPCRoute = iota
+	// HTTPRoute Envoy的Http route类型
 	HTTPRoute
+	// TCPRoute 当不属于上述两种类型后，默认使用Tcp route类型
 	TCPRoute
 )
 
+// ActionType 动作类型
+type ActionType int
+
 const (
+	// CheckEvent 健康检查的事件
 	CheckEvent = iota
+	// KvEvent KV修改事件
 	KvEvent
+	// AddEndpoint 添加新的Endpoint
 	AddEndpoint
+	// RemoveEndpoint 删除已存在的Endpoint
 	RemoveEndpoint
 )
 
@@ -80,16 +90,16 @@ func (c client) routeConvert2RouterDiscoveryResponse(consulRoute map[string][]se
 
 		var r *route.Route
 
-		defaultHttpAction := &route.Route_Route{
+		defaultHTTPAction := &route.Route_Route{
 			Route: &route.RouteAction{
-				ClusterSpecifier: &route.RouteAction_Cluster{Cluster: fmt.Sprintf("%s_cluster", c.defaultCluster[HTTPRoute])},
-				PrefixRewrite:    "/",
+				ClusterSpecifier: &route.RouteAction_Cluster{Cluster: "http_proxy_cluster"},
+				// PrefixRewrite:    "/",
 			}}
 
 		defaultGrpcction := &route.Route_Route{
 			Route: &route.RouteAction{
-				ClusterSpecifier: &route.RouteAction_Cluster{Cluster: fmt.Sprintf("%s_cluster", c.defaultCluster[GRPCRoute])},
-				PrefixRewrite:    "/",
+				ClusterSpecifier: &route.RouteAction_Cluster{Cluster: "grpc_proxy_cluster"},
+				// PrefixRewrite:    "/",
 			}}
 
 		//defaultTcpAction := &route.Route_Route{
@@ -112,7 +122,7 @@ func (c client) routeConvert2RouterDiscoveryResponse(consulRoute map[string][]se
 						PrefixRewrite:    "/",
 					}}
 			} else {
-				r.Action = defaultHttpAction
+				r.Action = defaultHTTPAction
 			}
 
 		} else {
@@ -186,6 +196,11 @@ func (c client) routeConvert2ClusterDiscoveryResponse(route map[string][]service
 			continue
 		}
 
+		if srv[0].remove {
+			logrus.Debugf("%s Has Been Remove. Need Not Create Discovery Clusters ", name)
+			continue
+		}
+
 		srvType := srv[0].routetype
 
 		var end []*endpoint.LbEndpoint
@@ -256,8 +271,7 @@ func (c client) routeConvert2ClusterDiscoveryResponse(route map[string][]service
 						Value: 1,
 					},
 					HealthChecker: &core.HealthCheck_TcpHealthCheck_{
-						TcpHealthCheck: &core.HealthCheck_TcpHealthCheck{
-						},
+						TcpHealthCheck: &core.HealthCheck_TcpHealthCheck{},
 					},
 				},
 			},
@@ -304,23 +318,32 @@ func (c client) routeInit() error {
 	for _, k := range val {
 		var m meta
 		if err := json.Unmarshal(k.Value, &m); err == nil {
-			name := trimKey(k.Key)
-			ses, _, err := c.cli.Health().Service(name, "", true, nil)
-			if err != nil {
-				logrus.Errorf("Query [%s] Endpoints Error. %s", name, err.Error())
-				continue
-			}
-
 			var srvs []service
-			for _, s := range ses {
+			name := trimKey(k.Key)
+			if m.Remove {
 				srvs = append(srvs, service{
 					name:      name,
-					endpoint:  fmt.Sprintf("%s:%d", s.Service.Address, s.Service.Port),
-					url:       m.Url,
+					url:       m.URL,
 					routetype: RouteType(m.RouteType),
 					action:    AddEndpoint,
-					remove:    m.Remove,
+					remove:    true,
 				})
+			} else {
+				ses, _, err := c.cli.Health().Service(name, "", true, nil)
+				if err != nil {
+					logrus.Errorf("Query [%s] Endpoints Error. %s", name, err.Error())
+					continue
+				}
+				for _, s := range ses {
+					srvs = append(srvs, service{
+						name:      name,
+						endpoint:  fmt.Sprintf("%s:%d", s.Service.Address, s.Service.Port),
+						url:       m.URL,
+						routetype: RouteType(m.RouteType),
+						action:    AddEndpoint,
+						remove:    false,
+					})
+				}
 			}
 
 			if len(srvs) > 0 {
@@ -329,22 +352,45 @@ func (c client) routeInit() error {
 		}
 	}
 
+	// // 创建反向代理Cluster
+	// c.routes[c.defaultCluster[HTTPRoute]] = []service{
+	// 	{
+	// 		name:      c.defaultCluster[HTTPRoute],
+	// 		endpoint:  fmt.Sprintf("%s.tio.svc.cluster.local:80", c.defaultCluster[HTTPRoute]),
+	// 		url:       "/",
+	// 		routetype: HTTPRoute,
+	// 		action:    AddEndpoint,
+	// 		remove:    false,
+	// 	},
+	// }
+
+	// c.routes[c.defaultCluster[GRPCRoute]] = []service{
+	// 	{
+	// 		name:      c.defaultCluster[GRPCRoute],
+	// 		endpoint:  fmt.Sprintf("%s.tio.svc.cluster.local:80", c.defaultCluster[GRPCRoute]),
+	// 		url:       "/",
+	// 		routetype: GRPCRoute,
+	// 		action:    AddEndpoint,
+	// 		remove:    false,
+	// 	},
+	// }
+
 	return nil
 }
 
-func (c client) clusterInit() {
-	if os.Getenv("TIO_CONSUL_CLUSTER_HTTP") != "" {
-		c.defaultCluster[HTTPRoute] = os.Getenv("TIO_CONSUL_CLUSTER_HTTP")
-	}
+// func (c client) clusterInit() {
+// 	if os.Getenv("TIO_CONSUL_CLUSTER_HTTP") != "" {
+// 		c.defaultCluster[HTTPRoute] = os.Getenv("TIO_CONSUL_CLUSTER_HTTP")
+// 	}
 
-	if os.Getenv("TIO_CONSUL_CLUSTER_GRPC") != "" {
-		c.defaultCluster[GRPCRoute] = os.Getenv("TIO_CONSUL_CLUSTER_GRPC")
-	}
+// 	if os.Getenv("TIO_CONSUL_CLUSTER_GRPC") != "" {
+// 		c.defaultCluster[GRPCRoute] = os.Getenv("TIO_CONSUL_CLUSTER_GRPC")
+// 	}
 
-	if os.Getenv("TIO_CONSUL_CLUSTER_TCP") != "" {
-		c.defaultCluster[TCPRoute] = os.Getenv("TIO_CONSUL_CLUSTER_TCP")
-	}
-}
+// 	if os.Getenv("TIO_CONSUL_CLUSTER_TCP") != "" {
+// 		c.defaultCluster[TCPRoute] = os.Getenv("TIO_CONSUL_CLUSTER_TCP")
+// 	}
+// }
 
 func watch(cli consulCli, cc chan consulData) {
 	for {
@@ -367,38 +413,52 @@ func watch(cli consulCli, cc chan consulData) {
 }
 
 func (c client) handlerCheckEvent(cd consulData) map[string][]service {
-	//route := make(map[string][]service)
 
 	if cd.name != "" {
-		alive, err := c.queryAliveService(cd.name)
+		logrus.Debugf("Query Service %s Alive Instance", cd.name)
+
+		alive, err := c.queryAliveEndpoint(cd.name)
 		if err != nil {
 			logrus.Errorf("query alive service error: %s", err)
 			return nil
 		}
 
+		logrus.Debugf("Service  Has %d Alive Instance", len(alive))
 		m := c.route[cd.name]
-		if m.Url == "" {
+		if m.URL == "" {
 			logrus.Errorf("Can not find URL for %s", cd.name)
 			return nil
 		}
+
+		// clear old routes
+		c.routes = make(map[string][]service)
 
 		var s []service
 
 		for _, a := range alive {
 			s = append(s, service{
 				endpoint:  a,
-				url:       m.Url,
+				url:       m.URL,
 				routetype: RouteType(m.RouteType),
 				action:    AddEndpoint,
-				remove:    m.Remove,
+				remove:    false,
 			})
 		}
 
 		c.routes[cd.name] = s
+		logrus.Debugf("The Latest Rotues [%v]", c.routes)
+
 		return c.routes
 	}
 
-	return nil
+	logrus.Debugf("A Service Fall Down. So I Need Re-Create All Clusters")
+	err := c.routeInit()
+	if err != nil {
+		logrus.Errorf("Route Init Error. %s", err.Error())
+		return nil
+	}
+
+	return c.routes
 }
 
 func (c client) handlerKVEvent(cd consulData) {
@@ -409,12 +469,12 @@ func (c client) handlerKVEvent(cd consulData) {
 }
 
 type client struct {
-	route          map[string]meta
-	cli            *api.Client
-	cc             chan consulData
-	address        string
-	routes         map[string][]service
-	defaultCluster map[int]string
+	route   map[string]meta
+	cli     *api.Client
+	cc      chan consulData
+	address string
+	routes  map[string][]service
+	// defaultCluster map[int]string
 }
 
 func (c client) watchKVEvents(cd chan consulData) {
@@ -485,7 +545,7 @@ func (c client) handlerRoute(endpoints map[string][]service) error {
 	return nil
 }
 
-func (c client) queryAliveService(sid string) ([]string, error) {
+func (c client) queryAliveEndpoint(sid string) ([]string, error) {
 	allServices, _, err := c.cli.Catalog().Service(sid, "", nil)
 	if err != nil {
 		return nil, err
@@ -513,12 +573,12 @@ func initClient() (*client, error) {
 	}
 
 	return &client{
-		cli:            cli,
-		route:          make(map[string]meta),
-		cc:             make(chan consulData, 100),
-		address:        config.Address,
-		routes:         make(map[string][]service),
-		defaultCluster: make(map[int]string),
+		cli:     cli,
+		route:   make(map[string]meta),
+		cc:      make(chan consulData, 100),
+		address: config.Address,
+		routes:  make(map[string][]service),
+		// defaultCluster: make(map[int]string),
 	}, nil
 }
 

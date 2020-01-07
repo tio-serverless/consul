@@ -6,7 +6,7 @@ import (
 	"net"
 	"os"
 
-	"github.com/envoyproxy/go-control-plane/envoy/api/v2"
+	envoy_api_v2 "github.com/envoyproxy/go-control-plane/envoy/api/v2"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
@@ -71,7 +71,7 @@ func (x xdsrv) StreamRoutes(rs envoy_api_v2.RouteDiscoveryService_StreamRoutesSe
 			}
 		}
 	}
-	return nil
+
 }
 
 func (x xdsrv) DeltaRoutes(rs envoy_api_v2.RouteDiscoveryService_DeltaRoutesServer) error {
