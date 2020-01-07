@@ -93,13 +93,13 @@ func (c client) routeConvert2RouterDiscoveryResponse(consulRoute map[string][]se
 		defaultHTTPAction := &route.Route_Route{
 			Route: &route.RouteAction{
 				ClusterSpecifier: &route.RouteAction_Cluster{Cluster: "http_proxy_cluster"},
-				PrefixRewrite:    "/",
+				// PrefixRewrite:    "/",
 			}}
 
 		defaultGrpcction := &route.Route_Route{
 			Route: &route.RouteAction{
 				ClusterSpecifier: &route.RouteAction_Cluster{Cluster: "grpc_proxy_cluster"},
-				PrefixRewrite:    "/",
+				// PrefixRewrite:    "/",
 			}}
 
 		//defaultTcpAction := &route.Route_Route{
